@@ -1,0 +1,28 @@
+import React, { useEffect } from 'react';
+import { useDiagramStore } from '../state/diagramStore';
+import { Stage, Layer, Rect, Line, Text } from 'react-konva';
+
+export function DiagramCanvas() {
+  const nodes = useDiagramStore(state => state.nodes);
+  const edges = useDiagramStore(state => state.edges);
+  const selectNode = useDiagramStore(state => state.selectNode);
+
+  return (
+    <Stage width={window.innerWidth} height={window.innerHeight} draggable>
+      <Layer>
+        {edges.map(edge => (
+          <Line key={edge.id} points={...computePoints(edge)} stroke="gray" />
+        ))}
+        {nodes.map(node => (
+          <React.Fragment key={node.id}>
+            <Rect x={node.x} y={node.y} width={node.width} height={node.height} fill="#fff" stroke="#333" draggable
+              onDragEnd={e => updateNode(node.id, { x: e.target.x(), y: e.target.y() })}
+              onClick={() => selectNode(node.id)}
+            />
+            <Text text={node.label} x={node.x + 8} y={node.y + 8} />
+          </React.Fragment>
+        ))}
+      </Layer>
+    </Stage>
+  );
+}

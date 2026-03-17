@@ -1,0 +1,19 @@
+<ArchitectureDiagram xmlns="https://example.com/schema/archdiagram/v1">
+  <Header name="App-Blueprint" vendor="multi-cloud" createdBy="user:123" createdAt="..."/>
+  <Nodes>
+    <Node id="n1" type="aws.ec2.instance" label="App Server" x="100" y="120" width="120" height="80">
+      <Properties><Property name="instanceType">t3.medium</Property></Properties>
+      <Tags><Tag key="env">prod</Tag></Tags>
+    </Node>
+    ...
+  </Nodes>
+  <Edges>
+    <Edge id="e1" source="n1" target="n2" type="dependency">
+      <Label>HTTP</Label>
+      <Properties><Property name="bandwidth">1Gbps</Property></Properties>
+    </Edge>
+  </Edges>
+  <StencilRefs>
+    <Stencil vendor="aws" id="aws.ec2.instance" version="2026-02"/>
+  </StencilRefs>
+</ArchitectureDiagram>

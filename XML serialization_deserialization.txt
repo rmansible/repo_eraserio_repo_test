@@ -1,0 +1,15 @@
+function toXml(diagram: Diagram): string {
+  const doc = create({ version: '1.0' })
+    .ele('ArchitectureDiagram', { schemaVersion: '1' })
+    .ele('Header', ...).up()
+    .ele('Nodes');
+  diagram.nodes.forEach(n => {
+    doc.ele('Node', { id: n.id, type: n.type, x: n.x, y: n.y, width: n.width, height: n.height })
+      .ele('Label').txt(n.label).up()
+      .ele('Properties', ...).up()
+      .up();
+  });
+  // edges...
+  return doc.end({ prettyPrint: true });
+}
+function fromXml(xmlString: string): Diagram { ... }

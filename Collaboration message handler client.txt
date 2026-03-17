@@ -1,0 +1,10 @@
+import * as Y from 'yjs';
+import { WebrtcProvider } from 'y-webrtc';
+import { Awareness } from 'y-protocols/awareness';
+
+const doc = new Y.Doc();
+const provider = new WebsocketProvider('wss://api.example.com', `diagram-${diagramId}`, doc);
+const awareness = provider.awareness;
+awareness.setLocalStateField('user', { id: userId, name: userName, color });
+const nodes = doc.getMap('nodes');
+nodes.observe(event => dispatch(updateFromRemote(event)));

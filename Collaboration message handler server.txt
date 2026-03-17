@@ -1,0 +1,6 @@
+// y-websocket adaptor in Express:
+import { setupWSConnection } from 'y-websocket/bin/utils';
+import * as ws from 'ws';
+const wss = new ws.Server({ noServer: true });
+wss.on('connection', (conn, req) => setupWSConnection(conn, req, { gc: true }));
+// on auth, check token and attach req.user

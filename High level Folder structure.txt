@@ -1,0 +1,24 @@
+/frontend
+  /src
+    /components
+      Canvas.tsx, Toolbar.tsx, Inspector.tsx
+    /hooks
+      useDiagram.ts, useCollaboration.ts
+    /state
+      diagramStore.ts
+    /services
+      api.ts, auth.ts
+    /patterns
+      cloud-catalog.ts
+/backend
+  /src
+    /modules
+      auth/, users/, orgs/, workspaces/, diagrams/, collab/, exports/
+    /gateway
+      app.module.ts
+    /common
+      guards/, dto/, entities/
+  /prisma
+    schema.prisma
+  /worker
+    export-worker.ts

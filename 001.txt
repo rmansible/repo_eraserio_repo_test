@@ -1,0 +1,414 @@
+ A. High-Level Product Description & Personas
+Product summary (2–3 concise paragraphs)
+CloudDiagram (placeholder name) is a SaaS web app for architecture diagramming with a whiteboard UX and cloud-vendor-aware stencil library. Users create/edit diagrams in-browser, use curated AWS/Azure/GCP/Kubernetes shapes, define connectors/dependencies, and persist diagrams per workspace. Real-time multi-user editing and rich export (XML + PNG/SVG/PDF) are core.
+
+Key differentiators vs eraser.io/draw.io:
+
+vendor metadata + versioned stencil components (cloud architecture catalogs curated for enterprise)
+built-in multi-tenant organization + RBAC + audit logs for compliance
+first-class arch modeling features: tags by environment/region, template-driven architecture patterns, cloud cost estimates optional.
+deliberate modular backend for scale and enterprise pipelines.
+Cloud architects/DevOps choose it because it bridges informal whiteboard speed with enterprise diagram governance and reproducible machine-readable architecture artifacts. It supports a full lifecycle: modeling, collaboration, review, documentation export, and integration with CI/CD.
+
+Main personas
+Cloud Architect
+designs multi-cloud architecture, selects service patterns, validates infra dependencies.
+use-case: build landing-zone and migration diagrams; share with engineering/infra teams.
+DevOps Engineer
+maps deployment pipelines, network flows, Kubernetes clusters, observability architecture.
+use-case: co-edit running-state diagrams with operators, create runbooks with annotations/properties.
+Security Architect / Compliance
+threat model, network segmentation, guardrails.
+use-case: annotate controls (NIST/CSA), enforce required security services (IAM, logging).
+Solution Consultant / Pre-Sales
+present architectures to clients, generate proposals.
+use-case: assemble template-based diagrams quickly, export PDF/PNG, partner review.
+Team Lead/Product Owner
+manage projects, access control, audit changes.
+use-case: workspace/diagram approval, version history sign-off.
+✅ B. Feature-by-Feature Breakdown
+Core diagramming features (MVP)
+Canvas with zoom/pan/fit-to-screen
+Grid and snap-to-grid
+Shapes (rect, ellipse, swimlane templates)
+Connectors with orthogonal/straight/polylines
+Select/move/resize/rotate
+Undo/redo stack
+Copy/paste, duplicate, delete
+Layer visibility/lock
+Basic keyboard shortcuts
+Cloud vendor features
+MVP: AWS/Azure/GCP/K8s stencil palettes (icon + service metadata)
+Post-MVP: searchable cloud catalog, tagging (env, region, criticality)
+Post-MVP: stencil component versioning (v1/v2 of a firewall cluster)
+Nice-to-have: automated template generators (hub/spoke, microservices)
+Nice-to-have: “cloud readiness checks” rules engine
+Collaboration features
+MVP: multi-user presence, live cursor indicator, real-time edits
+Post-MVP: role-based sharing (owner/edit/comment/view), link sharing
+Post-MVP: comments/annotations on elements + threaded discussions
+Post-MVP: version history diff + restore
+Nice-to-have: live voice notes, activity feed
+Project/workspace management
+MVP: tenant, org, workspace, projects, diagram folder tree
+MVP: RBAC (OrgAdmin/WorkspaceAdmin/Editor/Viewer)
+Post-MVP: SSO team provisioning, SCIM
+Nice-to-have: project templates (e.g., “K8s secure cluster”)
+Export/import
+MVP: JSON diagram save/load (native)
+MVP: XML export + import (draw.io style compatible subset)
+Post-MVP: PNG/SVG export via headless rendering
+Post-MVP: PDF with page layout
+Nice-to-have: import from Lucidchart/Visio via translation
+Nice-to-have: API-based export endpoints
+✅ C. Technical Architecture
+1) Logical architecture
+Frontend (SPA + state management)
+React + TypeScript (or Vue).
+Diagram engine: custom canvas engine or library (mxGraph/diagrams.net, Konva, Fabric, SVG).
+State:
+local editor state (Zustand/Redux)
+collaboration state (Yjs/ShareDB)
+offline support: local persistence
+UI modules:
+Canvas (render nodes/connectors/user interactions)
+Toolbox/palette (stencils, search)
+Inspector (properties/tags)
+Project browser
+Collaboration panel (participants/chat/activity)
+Backend services
+API gateway (REST/GraphQL)
+Auth service (JWT/OIDC)
+Diagram service (CRUD for diagrams/pages/versions)
+Collaboration service (WebSocket + CRDT relay)
+Catalog service (vendor stencils, templates)
+Audit/service (activity logs, events)
+Optional: billing/subscription service (Stripe)
+Optional: export worker / render microservice
+Storage
+Relational DB: PostgreSQL (tenant data, diagrams metadata, users, permissions)
+Object storage: AWS S3/GCS/Azure Blob for diagram JSON/XML blobs, exports.
+Cache: Redis for sessions, locks, ephemeral collaboration.
+Optional: DB for real-time SHARD state (for full event history), or CRDT state store.
+Eventing/queue
+Message bus: Kafka/RabbitMQ/SQS
+Jobs: export generation, snapshotting, analytics events.
+Async processing for large exports/PDF, preview generation.
+Service architecture
+Modular monolith initially (faster), later split microservices by domain (auth/diagram/collab/catalog).
+All services containerized via Docker + Kubernetes.
+2) Physical/deployment architecture
+Cloud-agnostic, proposal on AWS:
+Load balancer (ALB/NGINX) → API service (ECS/EKS)
+CDN (CloudFront)
+WAF
+RDS PostgreSQL Multi-AZ
+ElastiCache Redis cluster
+S3 buckets for assets
+EventBridge/SQS for async
+Managed Kubernetes (EKS)
+Multi-tenant domain + optional per-tenant isolation.
+Monitoring: Prometheus + Grafana + ELK or CloudWatch.
+3) Component diagram (textual)
+Browser: user actions -> Canvas + collaboration module -> local model.
+Collaboration client uses WebSocket to Collaboration service.
+Diagram service:
+REST endpoints:
+GET /api/v1/workspaces/{w}/diagrams/{d}
+POST /api/v1/diagrams
+PUT /api/v1/diagrams/{d}
+GET /api/v1/diagrams/{d}/export?format=xml
+Collaboration service:
+room management
+state synchronization
+presence
+optional CRDT persistence to Redis/PQ.
+Auth service:
+JWT issuance
+external IdP OIDC
+role checks.
+Catalog service:
+GET /api/v1/catalogs/cloud/aws etc.
+Audit service:
+event receives events from API + collab.
+All orchestrated via API gateway with RBAC checks.
+
+✅ D. Data Model & Schema Design
+ER overview
+Tenant (Org) -> Workspace -> Project -> Diagram.
+User can belong to Org with roles.
+Diagram has versions, nodes, edges, properties.
+CloudCatalog (vendor service definitions) one-to-many per vendor.
+Template has preset node/link sets.
+AuditEvent logs user/resource actions.
+Table/collection samples (PostgreSQL)
+organizations
+
+id, name, slug, created_by, created_at, status
+users
+
+id, email, name, hashed_password, status, created_at
+organization_members
+
+id, org_id, user_id, role, created_at
+workspaces
+
+id, org_id, name, isolate, created_by, created_at
+projects
+
+id, workspace_id, name, description
+diagrams
+
+id, project_id, name, description, current_version_id, metadata(jsonb), created_by, updated_by, created_at, updated_at
+diagram_versions
+
+id, diagram_id, version_number, snapshot_blob_path, created_by, created_at
+contains pointer to object storage or direct JSON/XML
+diagram_nodes
+
+id, diagram_id, node_id, type, x, y, width, height, rotation, properties(jsonb), created_at
+diagram_edges
+
+id, diagram_id, edge_id, source_node_id, target_node_id, type, properties(jsonb), created_at
+cloud_service_catalog (vendor definitions)
+
+id, vendor ('aws'/'azure'...), service_key, name, category, icon_ref, metadata(jsonb), version, updated_at
+templates
+
+id, name, vendor, description, default_workspace_id, diagram_definition(jsonb), tags
+audit_events
+
+id, org_id, user_id, entity_type, entity_id, action, details(jsonb), created_at
+✅ E. Real-Time Collaboration Design
+Approach
+Preferred: CRDT (Yjs or Automerge) for strong real-time merge without central lock.
+Alternative: OT with ShareDB (if editing operations are causally ordered).
+Real-life: use Yjs + WebSocket for shared state; store periodic snapshot in DB.
+Client/server sync
+On join:
+client fetches base diagram via API.
+connect to WS room.
+receive Yjs document state.
+Local operations:
+updates to node/edge/properties commit to local Yjs document.
+Yjs sync protocol sends delta to server/p2p.
+Server:
+runs Yjs WebSocket server (e.g., y-websocket), handles client sign-in and authorization.
+persists updates to Redis (ephemeral) and periodic committed snapshots to PostgreSQL.
+also emits audit event + history record.
+Presence/cursor updates
+Presence via separate channel: each user sends {userId, cursor(x,y), selection, status}.
+Server broadcasts to room. Clients render avatars.
+Comment & activity from REST.
+Scalability
+Shard rooms across processes using Redis pub/sub.
+WebSocket autoscaling with sticky sessions or stateless w/ channel server.
+For huge rooms: "session lead" with state cache, or handshake from central session manager.
+Fallback: polling with optimistic concurrency for clients unable to WS.
+Conflict resolution
+CRDT handles inherent concurrency.
+Non-CRDT state (user assignments) via versions + merge strategies (last-writer-wins + change log).
+✅ F. XML Export/Import Design
+Internal model
+Diagram object:
+nodes: [{id, type, label, x, y, width, height, rotation, meta}]
+edges: [...]
+metadata: {vendor, created_by, tags, version}
+plus components (stencils by reference):
+{componentId, name, vendor, version, properties}
+XML mapping
+Option 1 (recommended MVP): custom XML with draw.io-like semantics.
+Option 2: compatibility mode with draw.io mxGraphModel as advanced.
+
+We choose semi-compatible:
+
+core schema easy, but includes our metadata.
+When exporting to draw.io style we map to <mxGraphModel><root>...
+Sample XML structure
+draw.io compatibility
+mxGraphModel with <mxCell> nodes and style.
+On import, map mxCell attributes to internal for supported features.
+On export, support optional toggle format=drawio.
+Backwards compatibility
+Add schemaVersion in XML.
+Upgrades: migration path in parser:
+if older version -> transform with migration scripts.
+Keep round-trip stable for full state.
+store diagram JSON includes formatVersion.
+✅ G. Tech Stack Recommendations
+Frontend
+React + TypeScript
+Next.js (for SSR landing pages) or CRA/Vite.
+State: Zustand or Redux Toolkit + RTK Query.
+Diagram engine:
+MVP: reactflow + custom shape libs.
+Alternative: mxgraph/diagrams.net core (more complex, PDF).
+Consider: @antv/x6 for graph + edge control.
+Rendering: SVG for clarity; Canvas fallback for performance.
+Collaboration lib: yjs + y-websocket.
+UI toolkit: Chakra UI / MUI.
+Backend
+Node.js + TypeScript + NestJS (modular services). Great for API containerization.
+ORM: Prisma.
+WebSocket: socket.io or ws for real-time; possibly y-websocket.
+Export/document generate: puppeteer for PDF/SVG.
+Cron: BullMQ with Redis.
+Auth: Keycloak / Auth0 / AWS Cognito (OIDC). Use Passport.
+API docs: OpenAPI/Swagger.
+Data
+PostgreSQL relational.
+Redis for sessions, locks, CRDT persistence.
+MinIO/AWS S3 for object storage.
+Optional: ElasticSearch for search.
+Realtime
+Yjs using WebSocket server + Redis adapter for scaling.
+Room design: 1 room per diagram.
+Why this stack
+TypeScript full-stack same language.
+Strong ecosystem and hiring pool.
+Performance + low-latency real-time.
+Manage complexity via proven libs.
+✅ H. Step-by-Step Implementation Roadmap
+Phase 0: Foundation
+Set up monorepo: frontend/, backend/, libs/.
+Identity: Auth0/Cognito, login/logout.
+Org/workspace/project APIs.
+Diagram CRUD (JSON) with DB and object storage.
+Basic React app: canvas with static shapes.
+Validate RBAC.
+Risks:
+
+auth integration complexity.
+stale DB schema early.
+Phase 1: Diagram engine MVP
+Add drag/drop stencil panel and service catalog.
+Add shapes/connectors, align, group.
+Save/load to DB.
+Undo/redo.
+export JSON.
+Inventory templates.
+Dependencies:
+
+UI clearing, node models.
+optional 3rd party canvas.
+Phase 2: XML and export
+implement XML serializer/deserializer.
+add export API (XML).
+add download button.
+implement PNG/SVG via headless.
+add versioning and diagram snapshots.
+Phase 3: Collaboration
+integrate Yjs + websockets.
+presence cursors and activity feed.
+conflict resolution.
+add change history.
+Phase 4: multi-tenant polish
+RBAC roles and shareable links.
+Audit logs.
+billing + subscription.
+admin UIs.
+Phase 5: performance/hardening
+caching.
+query optimization.
+load tests.
+security audit.
+deploy multi-AZ and autoscaling.
+Phase 6: enterprise features (long-term)
+SCIM + SSO.
+advanced policy controls.
+plugin integration (Jira, Confluence).
+offline/desktop.
+provider cost models.
+✅ I. Code Scaffolding & Examples
+High-level folder structure
+Example API endpoints (NestJS style)
+Create diagram:
+POST /api/v1/workspaces/:ws/projects/:p/diagrams
+Update diagram:
+PUT /api/v1/diagrams/:id (body includes contentJson)
+Get diagram:
+GET /api/v1/diagrams/:id
+Export diagram:
+POST /api/v1/diagrams/:id/export?format=xml
+Catalog:
+GET /api/v1/catalog/{vendor}
+Pseudocode snippets
+Diagram rendering component (React)
+Collaboration message handler (server)
+Collaboration message handler (client)
+XML serialization/deserialization
+✅ J. GitHub Repositories & Open-Source Inspiration
+Diagramming/canvas/graph
+jgraph/mxgraph (MIT) - core of draw.io, strong features and XML; can inspire data model.
+jgraph/diagrams.net (Apache 2.0) - main reference for import/export.
+wojtekmaj/react-pdf irrelevant; instead: smalot/canvas not.
+reactflow/reactflow (MIT) - modern drag/drop flow with React, good for UI.
+antvis/x6 (MIT) - graph editor with extension points.
+Real-time collaboration
+yjs/yjs (MIT) - CRDT core.
+y-protocols + y-websocket - websocket sync.
+ShareDB (MIT) - OT alternative.
+ConvergenceIO maybe proprietary.
+yorkie-team/yorkie (Apache 2.0)
+XML-based diagram formats
+jgraph/mxgraph parser code.
+jgraph/diagramly (diagrams.net) XML grammar.
+bpmn-io/bpmn-js (MIT) shows XML model transforms.
+sbailey/drawio-exporter etc.
+✅ K. Non-Functional Requirements (NFRs)
+Scalability
+target thousands orgs, 100s concurrent per diagram.
+horizontal scale WebSockets via stateless nodes + pub/sub.
+Performance
+UI latency < 50ms for local operations.
+API < 200ms for metadata.
+Security
+strong auth (JWT/OIDC), RBAC, row-level tenant isolation.
+encryption at rest, TLS 1.3, key rotation.
+secure object storage ACL.
+Availability
+99.9% SLA, multi-AZ.
+retries and circuit breakers.
+Observability
+traces (OpenTelemetry), logs (structured), metrics (CPU/latency/error).
+Compliance
+data residency (region-specific tenants), GDPR.
+logging for SOX/PCI if needed.
+✅ L. Risks, Trade-offs, and Alternatives
+Risks/trade-offs
+Build vs adopt engine
+Build in-house engine = high dev cost.
+Use reactflow/mxGraph for speed.
+Risk: licensing (AWS icons are brand restricted, but metadata fine).
+Collaboration complexity
+CRDT easiest for concurrent merge but server persistence tricky.
+OT has strong ordering but conflicts on complex graph operations.
+Vendor lock-in
+design cloud-agnostic (use Terraformable infra); still use managed services.
+draw.io compatibility
+full compatibility huge; if output simple tagged XML first.
+Mitigation
+Start with simplified object model + custom XML, implement draw.io later.
+Start with REST operations and collaborative "presence only" before full CRDT.
+Avoid premature microservice split; timeline risk.
+Simplified MVP variant
+Single tenant / org-only.
+JSON diagram storage only.
+No CRDT: lock per diagram for edit sessions.
+Basic sharing (link + simple role).
+PDF/SVG via client-side export (canvas snapshot).
+Full-featured variant
+Multi-tenancy, RBAC, audit, detailed schema.
+CRDT collaboration, real-time comment.
+draw.io import/export.
+enterprise SSO + billing + templates + advanced analytics.
+✨ Final Notes
+This plan is designed for a development team to convert into epics:
+foundational infra,
+diagram engine,
+collaboration,
+security,
+export.
+Encourage early spikes around diagram modeling and collaboration to validate choices.
+Keep architecture modular; each service can independently scale.
+Great progress already: you’ve got a full blue-light architecture ready to turn into sprint backlog items. Next step is converting sections into specific JIRA stories and architecting the database migrations for the first MVP tables (organizations, users, workspaces, diagrams, diagram_persistence).
